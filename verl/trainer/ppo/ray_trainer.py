@@ -1046,7 +1046,9 @@ class RayPPOTrainer(object):
                     #     return
                     
                 except Exception as e:
+                    import traceback as _tb
                     print(f'Error in training loop: {e}, step {self.global_steps}, skipping this batch')
+                    _tb.print_exc()
                     continue
                 
     

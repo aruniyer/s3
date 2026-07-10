@@ -97,6 +97,10 @@ celerybeat-schedule
 # virtualenv
 venv/
 ENV/
+.venv/
+
+# local machine/SSH access list (untracked)
+machines.txt
 
 # Spyder project settings
 .spyderproject

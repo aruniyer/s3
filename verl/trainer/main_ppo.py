@@ -22,6 +22,15 @@ USE_UTILITY_SCORE = True
 USE_GENERATION_SCORE = True
 
 
+def _json_default(o):
+    """Fallback serializer so numpy arrays/scalars can be dumped to JSON."""
+    if isinstance(o, np.ndarray):
+        return o.tolist()
+    if isinstance(o, np.generic):
+        return o.item()
+    return str(o)
+
+
 def _select_rm_score_fn(data_source):
         return rag_2.compute_score_rag
 
@@ -58,7 +67,7 @@ class RewardManager():
         cache_file = os.path.join(self.output_sequences_dir, f"{data_source}_output_sequences.json")
         with self.output_sequences_lock:
             with open(cache_file, 'w') as f:
-                json.dump(self.output_sequences_data[data_source], f, indent=2)
+                json.dump(self.output_sequences_data[data_source], f, indent=2, default=_json_default)
 
     def save_all_output_sequences(self):
         """Save all output sequences for all data sources"""
@@ -69,7 +78,7 @@ class RewardManager():
                     
                 cache_file = os.path.join(self.output_sequences_dir, f"{data_source}_output_sequences.json")
                 with open(cache_file, 'w') as f:
-                    json.dump(self.output_sequences_data[data_source], f, indent=2)
+                    json.dump(self.output_sequences_data[data_source], f, indent=2, default=_json_default)
 
     def __call__(self, data: DataProto):
         """We will expand this function gradually based on the available datasets"""
@@ -137,7 +146,7 @@ class RewardManager():
                         # Save to a temporary file first
                         temp_file = os.path.join(self.output_sequences_dir, f"{data_source}_output_sequences.json.tmp")
                         with open(temp_file, 'w') as f:
-                            json.dump(self.output_sequences_data[data_source], f, indent=2)
+                            json.dump(self.output_sequences_data[data_source], f, indent=2, default=_json_default)
                         # Atomic rename
                         final_file = os.path.join(self.output_sequences_dir, f"{data_source}_output_sequences.json")
                         os.rename(temp_file, final_file)

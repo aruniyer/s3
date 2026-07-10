@@ -72,37 +72,13 @@
 
 **Searcher & Generator Environment**
 ```bash
-conda create -n s3 python=3.9
-# install torch [or you can skip this step and let vllm to install the correct version for you]
-pip install torch==2.4.0 --index-url https://download.pytorch.org/whl/cu121
-# install vllm
-pip3 install vllm==0.6.3 # or you can install 0.5.4, 0.4.2 and 0.3.1
-pip3 install ray
-
-# verl
-# cd code
-pip install -e .
-
-# flash attention 2
-pip3 install flash-attn --no-build-isolation
-
-# we use pyserini for efficient retrieval and evaluation
-pip install pyserini    # the version we used is 0.22.1
-
-# quality of life
-pip install wandb IPython matplotlib huggingface_hub
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv sync
 ```
 
-**Retriever Environment**
-```bash
-conda create -n ret python=3.10
-conda activate ret
-
-conda install pytorch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 pytorch-cuda=12.1 -c pytorch -c nvidia
-pip install transformers datasets pyserini
-conda install -c pytorch -c nvidia faiss-gpu=1.8.0
-pip install uvicorn fastapi
-```
+`uv sync` installs Python 3.9, CUDA 12.1 PyTorch, vLLM, a matching
+FlashAttention wheel, and the retriever dependencies into `.venv`. Run
+commands with `uv run`, for example `uv run python -m verl.trainer.main_ppo`.
 
 
 
@@ -217,6 +193,4 @@ Although reproducing the model yourself is straightforward — and we actually *
 ```
 
 Thanks for your interest in our work!
-
-
 

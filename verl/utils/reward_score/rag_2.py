@@ -394,7 +394,7 @@ def extract_titles_and_texts(solution_str):
     
     
 
-def check_answer_correct(answer, golden_answers, model="Qwen/Qwen2.5-14B-Instruct-GPTQ-Int4"):
+def check_answer_correct(answer, golden_answers, model=MODEL):
     answer_context_score = answer_span_check(
         prediction=answer,
         golden_answers=golden_answers
@@ -438,7 +438,7 @@ def compute_score_rag(solution_str, ground_truth, zeroshot_answers, data_source,
             doc_id += 1
         
     if use_utility_score:
-        if question in zeroshot_answers[data_source]:
+        if data_source in zeroshot_answers and question in zeroshot_answers[data_source]:
             answer_zeroshot = zeroshot_answers[data_source][question]['answer']
             answer_zeroshot_score = zeroshot_answers[data_source][question]['score']
         # answer_zeroshot_score = check_answer_correct(answer=answer_zeroshot, golden_answers=golden_answers)
