@@ -13,6 +13,8 @@ export ACTOR_MODEL="${S3_ACTOR_MODEL:-$BASE_MODEL}"
 export CRITIC_MODEL="${S3_CRITIC_MODEL:-$BASE_MODEL}"
 export EXPERIMENT_NAME="s3_1.5b_full_${random_seed}"
 export VLLM_ATTENTION_BACKEND=XFORMERS
+# Reduce CUDA allocator fragmentation to avoid OOM on large-seqlen batches.
+export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 # Point the reward-model generator (verl/utils/reward_score/rag_2.py ->
 # generator_llms/local_inst.py) at the locally served 1.5B generator so the
 # vLLM OpenAI endpoint accepts the model name.
@@ -39,14 +41,14 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.model.use_remove_padding=True \
     actor_rollout_ref.actor.optim.lr_warmup_steps_ratio=0 \
     actor_rollout_ref.actor.ppo_mini_batch_size=48 \
-    actor_rollout_ref.actor.ppo_micro_batch_size=24 \
+    actor_rollout_ref.actor.ppo_micro_batch_size=8 \
     actor_rollout_ref.rollout.temperature=0.6 \
     actor_rollout_ref.actor.fsdp_config.param_offload=true \
-    actor_rollout_ref.rollout.log_prob_micro_batch_size=24 \
+    actor_rollout_ref.rollout.log_prob_micro_batch_size=8 \
     actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
     actor_rollout_ref.rollout.name=vllm \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.3 \
-    actor_rollout_ref.ref.log_prob_micro_batch_size=24 \
+    actor_rollout_ref.ref.log_prob_micro_batch_size=8 \
     actor_rollout_ref.ref.fsdp_config.param_offload=true \
     actor_rollout_ref.actor.state_masking=true \
     critic.optim.lr=1e-5 \
@@ -54,7 +56,7 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     critic.optim.lr_warmup_steps_ratio=0.01 \
     critic.model.path="$CRITIC_MODEL" \
     critic.model.enable_gradient_checkpointing=true \
-    critic.ppo_micro_batch_size=12 \
+    critic.ppo_micro_batch_size=4 \
     algorithm.kl_ctrl.kl_coef=0.001 \
     algorithm.no_think_rl=false \
     trainer.critic_warmup=0 \
