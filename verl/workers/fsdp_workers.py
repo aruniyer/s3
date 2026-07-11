@@ -54,8 +54,11 @@ class ActorRolloutRefWorker(Worker):
         super().__init__()
         self.config = config
         import torch.distributed
+        from datetime import timedelta
         if not torch.distributed.is_initialized():
-            torch.distributed.init_process_group(backend="nccl")
+            torch.distributed.init_process_group(
+                backend="nccl",
+                timeout=timedelta(seconds=int(os.environ.get("S3_NCCL_TIMEOUT_SEC", 3600))))
 
         # build device mesh for FSDP
         world_size = torch.distributed.get_world_size()
@@ -540,8 +543,11 @@ class CriticWorker(Worker):
     def __init__(self, config):
         super().__init__()
         import torch.distributed
+        from datetime import timedelta
         if not torch.distributed.is_initialized():
-            torch.distributed.init_process_group(backend="nccl")
+            torch.distributed.init_process_group(
+                backend="nccl",
+                timeout=timedelta(seconds=int(os.environ.get("S3_NCCL_TIMEOUT_SEC", 3600))))
         self.config = config
 
         # build device mesh for Ulysses Sequence Parallel
@@ -801,8 +807,11 @@ class RewardModelWorker(Worker):
     def __init__(self, config):
         super().__init__()
         import torch.distributed
+        from datetime import timedelta
         if not torch.distributed.is_initialized():
-            torch.distributed.init_process_group(backend="nccl")
+            torch.distributed.init_process_group(
+                backend="nccl",
+                timeout=timedelta(seconds=int(os.environ.get("S3_NCCL_TIMEOUT_SEC", 3600))))
         self.config = config
 
         # build device mesh for Ulysses Sequence Parallel
