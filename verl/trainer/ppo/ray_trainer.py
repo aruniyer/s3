@@ -685,7 +685,10 @@ class RayPPOTrainer(object):
                     print(f"start extraction")
                     reward_tensor = self.val_reward_fn(test_batch)
                     print(f"extraction end")
-                    
+
+                    reward_tensor_lst.append(reward_tensor)
+                    data_source_lst.append(test_batch.non_tensor_batch.get('data_source', ['unknown'] * reward_tensor.shape[0]))
+
                     step_cnt += 1
                     if step_cnt % 10 == 0:
                         print(f"saving output sequences")
@@ -693,28 +696,27 @@ class RayPPOTrainer(object):
                         print(f"saving output sequences end")
                         
             self.val_reward_fn.save_all_output_sequences()
-                    
-                    
 
-        #             reward_tensor_lst.append(reward_tensor)
-        #             data_source_lst.append(test_batch.non_tensor_batch.get('data_source', ['unknown'] * reward_tensor.shape[0]))
+        # Aggregate validation reward into metrics. Without a return here,
+        # _validate() yields None and `metrics.update(val_metrics)` in fit()
+        # raises TypeError; because global_steps is only incremented after the
+        # validation block, that turns into an infinite re-validation loop at the
+        # test_freq step. Always return a dict.
+        metric_dict = {}
+        if len(reward_tensor_lst) > 0:
+            reward_tensor = torch.cat([rw.sum(-1) for rw in reward_tensor_lst], dim=0).cpu()  # (batch_size,)
+            data_sources = np.concatenate(data_source_lst, axis=0)
+            data_source_reward = {}
+            for i in range(reward_tensor.shape[0]):
+                data_source = data_sources[i]
+                if data_source not in data_source_reward:
+                    data_source_reward[data_source] = []
+                data_source_reward[data_source].append(reward_tensor[i].item())
+            for data_source, rewards in data_source_reward.items():
+                metric_dict[f'val/test_score/{data_source}'] = np.mean(rewards)
+            metric_dict['val/test_score/all'] = float(reward_tensor.mean().item())
+        return metric_dict
 
-        # reward_tensor = torch.cat([rw.sum(-1) for rw in reward_tensor_lst], dim=0).cpu()  # (batch_size,)
-        # # reward_tensor = torch.cat(reward_tensor_lst, dim=0).sum(-1).cpu()  # (batch_size,)
-        # data_sources = np.concatenate(data_source_lst, axis=0)
-        # # evaluate test_score based on data source
-        # data_source_reward = {}
-        # for i in range(reward_tensor.shape[0]):
-        #     data_source = data_sources[i]
-        #     if data_source not in data_source_reward:
-        #         data_source_reward[data_source] = []
-        #     data_source_reward[data_source].append(reward_tensor[i].item())
-
-        # metric_dict = {}
-        # for data_source, rewards in data_source_reward.items():
-        #     metric_dict[f'val/test_score/{data_source}'] = np.mean(rewards)
-
-        # return metric_dict
 
 
     def init_workers(self):
@@ -1009,9 +1011,15 @@ class RayPPOTrainer(object):
                         # validate
                         if self.val_reward_fn is not None and self.config.trainer.test_freq > 0 and \
                             self.global_steps % self.config.trainer.test_freq == 0:
-                            with _timer('testing', timing_raw):
-                                val_metrics: dict = self._validate()
-                            metrics.update(val_metrics)
+                            try:
+                                with _timer('testing', timing_raw):
+                                    val_metrics: dict = self._validate()
+                                if val_metrics:
+                                    metrics.update(val_metrics)
+                            except Exception as _ve:
+                                import traceback as _vtb
+                                print(f'Validation failed at step {self.global_steps}, continuing training: {_ve}')
+                                _vtb.print_exc()
 
                         if self.config.trainer.save_freq > 0 and \
                                 self.global_steps % self.config.trainer.save_freq == 0:
