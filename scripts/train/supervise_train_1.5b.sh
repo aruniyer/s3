@@ -29,11 +29,26 @@ SUP_LOG="$LOG_DIR/supervisor.log"
 
 log() { echo "===== [$(date '+%Y-%m-%d %H:%M:%S')] $* =====" | tee -a "$SUP_LOG"; }
 
-latest_ckpt() {  # $1 = actor|critic -> prints newest checkpoint dir or nothing
-  local sub="$CKPT_ROOT/$1" n
+latest_ckpt() {  # $1 = actor|critic -> prints the checkpoint holding the most-recently-saved weights
+  local sub="$CKPT_ROOT/$1" d t newest_dir best=0
   [ -d "$sub" ] || return 0
-  n=$(ls -1d "$sub"/global_step_* 2>/dev/null | sed 's#.*global_step_##' | sort -n | tail -1)
-  [ -n "$n" ] && echo "$sub/global_step_$n"
+  # Select by the newest FILE mtime inside each checkpoint dir, not by the step
+  # number and not by the directory mtime. On resume this fork restarts
+  # global_steps at 0, so newer checkpoints overwrite lower-numbered dirs
+  # (e.g. global_step_25) in place. Overwriting files does not bump the parent
+  # dir's mtime, so both numeric sort and `ls -dt` would wrongly pick an older,
+  # higher-numbered checkpoint. The newest inner-file mtime always identifies
+  # the most-trained weights.
+  for d in "$sub"/global_step_*/; do
+    [ -d "$d" ] || continue
+    t=$(find "$d" -maxdepth 1 -type f -printf '%T@\n' 2>/dev/null | sort -n | tail -1)
+    [ -z "$t" ] && continue
+    if awk "BEGIN{exit !($t > $best)}"; then
+      best="$t"
+      newest_dir="${d%/}"
+    fi
+  done
+  [ -n "$newest_dir" ] && echo "$newest_dir"
 }
 
 cleanup() {
