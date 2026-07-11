@@ -1047,8 +1047,23 @@ class RayPPOTrainer(object):
                     
                 except Exception as e:
                     import traceback as _tb
-                    print(f'Error in training loop: {e}, step {self.global_steps}, skipping this batch')
+                    # Fail fast on fatal worker/actor deaths (OOM/SIGSEGV). These are
+                    # unrecoverable in-process: the ray worker group is gone, so every
+                    # subsequent batch would raise the same error. Re-raise so the driver
+                    # exits non-zero and the supervisor can restart from the last
+                    # checkpoint, instead of silently spinning through the dataloader.
+                    _msg = str(e)
+                    _fatal = (
+                        e.__class__.__name__ in ('ActorDiedError', 'RayActorError', 'RaySystemError')
+                        or 'actor is dead' in _msg
+                        or 'actor died' in _msg
+                        or 'died unexpectedly' in _msg
+                    )
+                    print(f'Error in training loop: {e}, step {self.global_steps}, '
+                          f'{"FATAL, aborting" if _fatal else "skipping this batch"}')
                     _tb.print_exc()
+                    if _fatal:
+                        raise
                     continue
                 
     
